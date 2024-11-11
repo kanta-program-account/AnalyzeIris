@@ -286,41 +286,52 @@ class AnalyzeIris:
         number_of_features = len(self.feature_names)
         
         # Execute cross-validation for original data.
-        cv_results = cross_validate(LinearSVC(), X, y, cv=kfold, return_train_score=True)
-
+        cv_results = cross_validate(LinearSVC(), X, y, cv=kfold, return_train_score=True, return_indices=True)
         
         # --Plot "scaled data" after obtaining 5-fold train and test scores.--
         
-        fig, axes = plt.subplots(20, 5, figsize=(24, 120))  
-        
-        for i, (scaler_name, scaler) in enumerate(self.scalers.items(), 1):  # i:column index
+        for i in range(kfold): # i:split index
             
-            # Create a pipeline that scales the data and fits a model.
-            pipeline = make_pipeline(scaler, LinearSVC())
+            # # Create a subplots.
+            fig, axes = plt.subplots(4, 5, figsize=(20, 20))
             
-            # Execute cross-validation for scaled data.
-            scaled_cv_results = cross_validate(pipeline, X, y, cv=5, return_train_score=True, return_indices=True)
+            # Extract a original data from cross_validate().
+            X_train = X[cv_results["indices"]["train"][i]]
+            X_test = X[cv_results["indices"]["test"][i]]
             
-            for j in range(kfold): # j:split index
+            # Output.
+            print("{:<17}: test score: {:.3f}     train score: {:.3f}".format("Original", cv_results['test_score'][i], cv_results['train_score'][i]))
+
+            for j, (scaler_name, scaler) in enumerate(self.scalers.items()):  # j:scaler index
+            
+                # Create a pipeline that scales the data and fits a model.
+                pipeline = make_pipeline(scaler, LinearSVC())
                 
-                # print("{:<17}: test score: {:.3f}     train score: {:.3f}".format("Original", cv_results['test_score'][j], cv_results['train_score'][j]))
-                # print("{:<17}: test score: {:.3f}     train score: {:.3f}".format(scaler_name, cv_results['test_score'][j], cv_results['train_score'][j]))
-                
-                # # Create a subplots.
-                # fig, axes = plt.subplots(4, 5, figsize=(12, 120))  
-                
+                # Execute cross-validation for scaled data.
+                scaled_cv_results = cross_validate(pipeline, X, y, cv=5, return_train_score=True, return_indices=True)
+
                 # Extract a scaled data from cross_validate().
-                X_train_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["train"][j]])
-                X_test_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["test"][j]])                
+                X_train_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["train"][i]])
+                X_test_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["test"][i]]) 
+
+                print("{:<17}: test score: {:.3f}     train score: {:.3f}".format(scaler_name, scaled_cv_results['test_score'][i], scaled_cv_results['train_score'][i]))       
 
                 for k in range(number_of_features): # k:feature index
-                    
                     # Replace rows and columns based on indexes.
-                    row = number_of_features*j+k
-                    column = i
-                    
-                    # Create plots.
+                    row = k
+                    column = j+1           
+                        
                     if k != number_of_features-1:
+                        if j == 0:
+                            # Create a original data plot.
+                            axes[row, 0].scatter(X_train[:, k], X_train[:, k+1], label="Training set")
+                            axes[row, 0].scatter(X_test[:, k], X_test[:, k+1], marker='^', label="Test set")
+                            axes[row, 0].legend(loc='upper left')
+                            axes[row, 0].set_title("Original data")
+                            axes[row, 0].set_xlabel(self.feature_names[k])
+                            axes[row, 0].set_ylabel(self.feature_names[k+1])
+                        
+                        # Create a scaled data plots.
                         axes[row, column].scatter(X_train_scaled[:, k], X_train_scaled[:, k+1], label="Training set")
                         axes[row, column].scatter(X_test_scaled[:, k], X_test_scaled[:, k+1], marker='^', label="Test set")
                         axes[row, column].legend(loc='upper left')
@@ -328,6 +339,16 @@ class AnalyzeIris:
                         axes[row, column].set_xlabel(self.feature_names[k])
                         axes[row, column].set_ylabel(self.feature_names[k+1])
                     else:
+                        if j == 0:
+                            # Create a original data plot.
+                            axes[row, 0].scatter(X_train[:, k], X_train[:, 0], label="Training set")
+                            axes[row, 0].scatter(X_test[:, k], X_test[:, 0], marker='^', label="Test set")
+                            axes[row, 0].legend(loc='upper left')
+                            axes[row, 0].set_title("Original data")
+                            axes[row, 0].set_xlabel(self.feature_names[k])
+                            axes[row, 0].set_ylabel(self.feature_names[0])
+
+                        # Create a scaled data plots.
                         axes[row, column].scatter(X_train_scaled[:, k], X_train_scaled[:, 0], label="Training set")
                         axes[row, column].scatter(X_test_scaled[:, k], X_test_scaled[:, 0], marker='^', label="Test set")
                         axes[row, column].legend(loc='upper left')
