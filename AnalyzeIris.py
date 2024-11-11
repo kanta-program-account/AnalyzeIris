@@ -27,6 +27,7 @@ from sklearn.cluster import DBSCAN
 
 from sklearn.model_selection import cross_validate
 from sklearn.pipeline import make_pipeline
+import time
 
 
 
@@ -270,6 +271,17 @@ class AnalyzeIris:
     def PlotScaledData(self) -> None:
         """Show a scaled data plot for each scaling model and each feature combination. 
         """
+        
+        def ScatterPlot(self, axes, row, column, X_train, X_test, index_feature_xaxis, index_feature_yaxis, title) -> None:
+            """Helper function to create a scatter plot on given axes with training and test data.
+            """
+            axes[row, column].scatter(X_train[:, index_feature_xaxis], X_train[:, index_feature_yaxis], label="Training set")
+            axes[row, column].scatter(X_test[:, index_feature_xaxis], X_test[:, index_feature_yaxis], marker='^', label="Test set")
+            axes[row, column].legend(loc='upper left')
+            axes[row, column].set_title(f"{title}")
+            axes[row, column].set_xlabel(self.feature_names[index_feature_xaxis])
+            axes[row, column].set_ylabel(self.feature_names[index_feature_yaxis]) 
+        
         # Define X and y as shuffled.
         X, y = self.shuffle_X, self.shuffle_y
         
@@ -302,7 +314,17 @@ class AnalyzeIris:
             # Output.
             print("{:<17}: test score: {:.3f}     train score: {:.3f}".format("Original", cv_results['test_score'][i], cv_results['train_score'][i]))
 
-            for j, (scaler_name, scaler) in enumerate(self.scalers.items()):  # j:scaler index
+            for index_feature_xaxis in range(number_of_features): # index_feature_xaxis: The feature index of the x-axis.
+                # Calculate the feature index of the y-axis.
+                index_feature_yaxis = index_feature_xaxis+1 if (index_feature_xaxis != number_of_features-1) else 0         
+                
+                # Replace.
+                row = index_feature_xaxis
+                
+                # Create a original data plot.
+                ScatterPlot(self, axes=axes, row=row, column=0, X_train=X_train, X_test=X_test, index_feature_xaxis=index_feature_xaxis, index_feature_yaxis=index_feature_yaxis, title="Original")
+            
+            for column_axes, (scaler_name, scaler) in enumerate(self.scalers.items()):
             
                 # Create a pipeline that scales the data and fits a model.
                 pipeline = make_pipeline(scaler, LinearSVC())
@@ -312,54 +334,26 @@ class AnalyzeIris:
 
                 # Extract a scaled data from cross_validate().
                 X_train_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["train"][i]])
-                X_test_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["test"][i]]) 
+                X_test_scaled = scaler.transform(X[scaled_cv_results["indices"]["test"][i]]) 
 
                 print("{:<17}: test score: {:.3f}     train score: {:.3f}".format(scaler_name, scaled_cv_results['test_score'][i], scaled_cv_results['train_score'][i]))       
 
-                for k in range(number_of_features): # k:feature index
-                    # Replace rows and columns based on indexes.
-                    row = k
-                    column = j+1           
-                        
-                    if k != number_of_features-1:
-                        if j == 0:
-                            # Create a original data plot.
-                            axes[row, 0].scatter(X_train[:, k], X_train[:, k+1], label="Training set")
-                            axes[row, 0].scatter(X_test[:, k], X_test[:, k+1], marker='^', label="Test set")
-                            axes[row, 0].legend(loc='upper left')
-                            axes[row, 0].set_title("Original data")
-                            axes[row, 0].set_xlabel(self.feature_names[k])
-                            axes[row, 0].set_ylabel(self.feature_names[k+1])
-                        
-                        # Create a scaled data plots.
-                        axes[row, column].scatter(X_train_scaled[:, k], X_train_scaled[:, k+1], label="Training set")
-                        axes[row, column].scatter(X_test_scaled[:, k], X_test_scaled[:, k+1], marker='^', label="Test set")
-                        axes[row, column].legend(loc='upper left')
-                        axes[row, column].set_title(f"{scaler_name}")
-                        axes[row, column].set_xlabel(self.feature_names[k])
-                        axes[row, column].set_ylabel(self.feature_names[k+1])
-                    else:
-                        if j == 0:
-                            # Create a original data plot.
-                            axes[row, 0].scatter(X_train[:, k], X_train[:, 0], label="Training set")
-                            axes[row, 0].scatter(X_test[:, k], X_test[:, 0], marker='^', label="Test set")
-                            axes[row, 0].legend(loc='upper left')
-                            axes[row, 0].set_title("Original data")
-                            axes[row, 0].set_xlabel(self.feature_names[k])
-                            axes[row, 0].set_ylabel(self.feature_names[0])
-
-                        # Create a scaled data plots.
-                        axes[row, column].scatter(X_train_scaled[:, k], X_train_scaled[:, 0], label="Training set")
-                        axes[row, column].scatter(X_test_scaled[:, k], X_test_scaled[:, 0], marker='^', label="Test set")
-                        axes[row, column].legend(loc='upper left')
-                        axes[row, column].set_title(f"{scaler_name}")
-                        axes[row, column].set_xlabel(self.feature_names[k])
-                        axes[row, column].set_ylabel(self.feature_names[0])    
+                for index_feature_xaxis in range(number_of_features): # index_feature_xaxis: The feature index of the x-axis.
+                    # Calculate the feature index of the y-axis.
+                    index_feature_yaxis = index_feature_xaxis+1 if (index_feature_xaxis != number_of_features-1) else 0         
+                    
+                    # Replace.
+                    row = index_feature_xaxis
+                    column = column_axes+1           
+                    
+                    # Create a scaled data plots.
+                    ScatterPlot(self, axes, row, column, X_train_scaled, X_test_scaled, index_feature_xaxis, index_feature_yaxis, scaler_name)
         
-        # Adjust a plots.
-        plt.tight_layout()
-        plt.show()
-    
+            # Display the current figure and then print the results for the fold.
+            plt.tight_layout()
+            plt.show()
+            print("=" * 73)
+
     def PlotFeatureHistgram(self) -> None:
         """Show histgrams of the frequency for each feature in various range. 
         """
