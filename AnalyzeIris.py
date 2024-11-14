@@ -27,7 +27,6 @@ from sklearn.cluster import DBSCAN
 
 from sklearn.model_selection import cross_validate
 from sklearn.pipeline import make_pipeline
-import time
 
 
 
@@ -130,13 +129,20 @@ class AnalyzeIris:
             'MLPClassifier': MLPClassifier(max_iter=2000)
         }
 
-        # Prepare for performing cross-validation.
-        kfold = KFold(n_splits=5, shuffle=False) # "kfold" is just defines how to divide the Iris dataset. train_test_split() cannnot evaluate train scores because this method cannot divide X_train. 
+        # Initialize feature importances.
+        tree_importances = 0
+        forest_importances = 0
+        gbrt_importances = 0
 
-        # Initialize for each feature importances.
-        tree_importances = np.zeros(X.shape[1])
-        forest_importances = np.zeros(X.shape[1])
-        gbrt_importances = np.zeros(X.shape[1])
+        # Define dictionary of eature importances.
+        self.importances_map = {
+            'DecisionTreeClassifier': tree_importances,
+            'RandomForestClassifier': forest_importances,
+            'GradientBoostingClassifier': gbrt_importances
+            }
+
+        # Define the number of splits.
+        kfold = 5
 
         # Calucurate train scores of each models.（cross_val_score only calculate test scores.）
         for model_name, model in self.models.items():
@@ -145,54 +151,38 @@ class AnalyzeIris:
             # Dataframe preparation for (n_splits) test scores of each models.
             df_test_scores_model = pd.DataFrame() 
 
+            # Execute cross-validation for original data.
+            cv_results = cross_validate(model, X, y, cv=kfold, return_train_score=True, return_indices=True, return_estimator=True)
+
             # Split train and test datasets according to Stratified K-Fold (SKF) rules.
-            for train_index, test_index in kfold.split(X, y):
-                
-                # Convert a index to data.
-                X_train, X_test = X[train_index], X[test_index]
-                y_train, y_test = y[train_index], y[test_index]
-                
-                # Train a model.
-                model.fit(X_train, y_train)
-                
-                # Caluculate feature importances of each decsision tree models (to get the mean feature importances later).
-                if model_name == 'DecisionTreeClassifier':
-                    tree_importances += model.feature_importances_
-                elif model_name == 'RandomForestClassifier':
-                    forest_importances += model.feature_importances_
-                elif model_name == 'GradientBoostingClassifier':
-                    gbrt_importances += model.feature_importances_
+            for fold_index in range(kfold):
 
-                # Return test score.
-                test_score = model.score(X_test, y_test)
+                # Replace.
+                test_score_fold = cv_results['test_score'][fold_index]
+                train_score_fold = cv_results['train_score'][fold_index]
 
-                # Return train score.
-                train_score = model.score(X_train, y_train) 
+                # Reassignment a fitted model.
+                model = cv_results['estimator'][fold_index]
 
                 # Output.
-                print("test score: {:.3f}   ".format(test_score), "train score: {:.3f}".format(train_score)) 
+                print("test score: {:.3f}   ".format(test_score_fold), "train score: {:.3f}".format(train_score_fold)) 
                 
                 # Add the current model's test scores.
-                df_test_scores_model = pd.concat([df_test_scores_model, pd.DataFrame([test_score])], ignore_index=True) # pd.concat(default: axis=0): Cobine dataframes.
+                df_test_scores_model = pd.concat([df_test_scores_model, pd.DataFrame([test_score_fold])], ignore_index=True) # pd.concat(default: axis=0): Cobine dataframes.
+
+                # Caluculate feature importances (to get the mean of them later).
+                if model_name in self.importances_map:
+                    self.importances_map[model_name] += model.feature_importances_
 
             # Caluculate mean of current model.
-            mean_score = df_test_scores_model.mean().item()
-            self.mean_scores.append(mean_score)
+            self.mean_scores.append(df_test_scores_model.mean().item())
 
-            # Add the all model's test scores.
+            # Add to the DataFrame that stores all the model's test scores.
             self.df_test_scores_all_models = pd.concat([self.df_test_scores_all_models, df_test_scores_model], ignore_index=True, axis=1)
 
-        # Get the mean feature importances
-        tree_importances /= kfold.get_n_splits() 
-        forest_importances /= kfold.get_n_splits()
-        gbrt_importances /= kfold.get_n_splits()
-
-        # Assign 
-        self.feature_importances = {
-            'DecisionTreeClassifier': tree_importances,
-            'RandomForestClassifier': forest_importances,
-            'GradientBoostingClassifier': gbrt_importances
-        }
+        # Get the mean of feature importances.
+        for importances in self.feature_importances:
+            importances /= kfold
     
     def GetSupervised(self) -> pd.DataFrame:
         """Show dataframe of 5 test scores for each model.
@@ -232,8 +222,10 @@ class AnalyzeIris:
         # Get the number of features.
         n_features = len(self.feature_names)
 
+        print(self.importances_map)
+
         # Create a graph.
-        for model_name, importance in self.feature_importances.items():
+        for model_name, importance in self.importances_map.items():
             
             plt.barh(range(n_features), importance, align='center')
             plt.yticks(np.arange(n_features), self.feature_names)
@@ -302,18 +294,19 @@ class AnalyzeIris:
         
         # --Plot "scaled data" after obtaining 5-fold train and test scores.--
         
-        for i in range(kfold): # i:split index
+        for fold_index in range(kfold): # i:fold index
             
             # # Create a subplots.
             fig, axes = plt.subplots(4, 5, figsize=(20, 20))
             
             # Extract a original data from cross_validate().
-            X_train = X[cv_results["indices"]["train"][i]]
-            X_test = X[cv_results["indices"]["test"][i]]
+            X_train = X[cv_results["indices"]["train"][fold_index]]
+            X_test = X[cv_results["indices"]["test"][fold_index]]
             
             # Output.
-            print("{:<17}: test score: {:.3f}     train score: {:.3f}".format("Original", cv_results['test_score'][i], cv_results['train_score'][i]))
+            print("{:<17}: test score: {:.3f}     train score: {:.3f}".format("Original", cv_results['test_score'][fold_index], cv_results['train_score'][fold_index]))
 
+            # Plot an original data.
             for index_feature_xaxis in range(number_of_features): # index_feature_xaxis: The feature index of the x-axis.
                 # Calculate the feature index of the y-axis.
                 index_feature_yaxis = index_feature_xaxis+1 if (index_feature_xaxis != number_of_features-1) else 0         
@@ -333,10 +326,10 @@ class AnalyzeIris:
                 scaled_cv_results = cross_validate(pipeline, X, y, cv=5, return_train_score=True, return_indices=True)
 
                 # Extract a scaled data from cross_validate().
-                X_train_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["train"][i]])
-                X_test_scaled = scaler.transform(X[scaled_cv_results["indices"]["test"][i]]) 
+                X_train_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["train"][fold_index]])
+                X_test_scaled = scaler.transform(X[scaled_cv_results["indices"]["test"][fold_index]]) 
 
-                print("{:<17}: test score: {:.3f}     train score: {:.3f}".format(scaler_name, scaled_cv_results['test_score'][i], scaled_cv_results['train_score'][i]))       
+                print("{:<17}: test score: {:.3f}     train score: {:.3f}".format(scaler_name, scaled_cv_results['test_score'][fold_index], scaled_cv_results['train_score'][fold_index]))       
 
                 for index_feature_xaxis in range(number_of_features): # index_feature_xaxis: The feature index of the x-axis.
                     # Calculate the feature index of the y-axis.
