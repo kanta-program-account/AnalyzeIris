@@ -4,20 +4,21 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_iris
+from sklearn.utils import shuffle
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_validate
 from sklearn.tree import export_graphviz
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import Normalizer
-from sklearn.utils import shuffle
+from sklearn.pipeline import make_pipeline
 from sklearn.decomposition import PCA
 from sklearn.decomposition import NMF
 from sklearn.manifold import TSNE
@@ -25,8 +26,7 @@ from sklearn.cluster import KMeans
 from scipy.cluster.hierarchy import dendrogram, ward
 from sklearn.cluster import DBSCAN
 
-from sklearn.model_selection import cross_validate
-from sklearn.pipeline import make_pipeline
+
 
 
 
@@ -51,6 +51,9 @@ class AnalyzeIris:
 
         # Get a feature names.
         self.feature_names = iris_dataset.feature_names
+
+        # Get a target names.
+        self.target_names = iris_dataset.target_names
 
         # Get a data and taraget from the Iris dataset.
         self.X, self.y = iris_dataset.data, iris_dataset.target
@@ -243,7 +246,7 @@ class AnalyzeIris:
         X, y = self.X, self.y
 
         # Split X and y. 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, shuffle=True, random_state=0) # "kfold" used in AllSupervised() method cannot be used because each split of X_train and y_train is too small.
+        X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, shuffle=True, random_state=0) # "fold" used in AllSupervised() method cannot be used because each split of X_train and y_train is too small.
 
         # Define a model.
         tree = DecisionTreeClassifier(random_state=0)
@@ -296,7 +299,7 @@ class AnalyzeIris:
         
         for fold_index in range(kfold): # i:fold index
             
-            # # Create a subplots.
+            # Create subplots.
             fig, axes = plt.subplots(4, 5, figsize=(20, 20))
             
             # Extract a original data from cross_validate().
@@ -351,20 +354,33 @@ class AnalyzeIris:
         """Show histgrams of the frequency for each feature in various range. 
         """
         X, y = self.X, self.y
-        feature_names = self.iris_dataset.feature_names
-        target_names = self.iris_dataset.target_names  # クラス名を修正
-        colors = ['blue', 'red', 'green']  # クラスごとの色を指定
+
+        # Define a list of color.
+        colors = ['blue', 'red', 'green']
         
-        # 各特徴量ごとにヒストグラムを描画
-        for i in range(X.shape[1]):  # 4つの特徴量に対してループ
-            plt.figure(figsize=(10, 6))  # 図のサイズ設定
-            for j, color in enumerate(colors):  # クラスごとのループ
-                plt.hist(X[y == j, i], bins=20, alpha=0.5, color=color, label=target_names[j])
+        # Plot a histogram for each feature.
+        for feature in range(len(self.feature_names)):
+
+            # Create subplots.
+            plt.figure(figsize=(10, 6))
+
+            # Plot histograms for each target, with the same bins for all.
+            # Find the minimum and maximum values of the feature across all targets.
+            min_value = X[:, feature].min()
+            max_value = X[:, feature].max()
+
+            # Set bins.
+            bins = 50  # Fixed number of bins for all targets
+
+            # Plot the histogram with the same bins across all target labels.
+            for target, color in zip(range(len(self.target_names)), colors):
+                # Select data corresponding to the current target and plot it.
+                plt.hist(X[y == target, feature], bins=bins, alpha=0.5, color=color, label=self.target_names[target], range=(min_value, max_value))
             
-            plt.xlabel(feature_names[i])  # x軸ラベル
-            plt.ylabel("Frequency")  # y軸ラベル
-            plt.legend()  # 凡例を表示
-            plt.show()  # 各特徴量ごとに表示
+            plt.xlabel(self.feature_names[feature])
+            plt.ylabel("Frequency")
+            plt.legend()
+            plt.show()
     
     def PlotPCA(self, n_components: int) -> tuple[pd.DataFrame, pd.DataFrame, PCA]: # tuple: 変更できない配列。 list: 変更可能な配列。
         """Show  scatter plot of PCA scaled iris_data. 
