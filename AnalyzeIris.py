@@ -353,6 +353,7 @@ class AnalyzeIris:
     def PlotFeatureHistgram(self) -> None:
         """Show histgrams of the frequency for each feature in various range. 
         """
+        # Define X and y as a raw data.
         X, y = self.X, self.y
 
         # Define a list of color.
@@ -382,7 +383,7 @@ class AnalyzeIris:
             plt.legend()
             plt.show()
     
-    def PlotPCA(self, n_components: int) -> tuple[pd.DataFrame, pd.DataFrame, PCA]: # tuple: 変更できない配列。 list: 変更可能な配列。
+    def PlotPCA(self, n_components: int) -> tuple[pd.DataFrame, pd.DataFrame, PCA]: # tuple: A non-modifiable array. list: A modifiabl array.
         """Show  scatter plot of PCA scaled iris_data. 
 
         Args:
@@ -393,23 +394,31 @@ class AnalyzeIris:
             df_pca (pandas.core.frame.DataFrame): Dataframe of scaled iris data after dimensionality reduction.
             pca (sklearn.decomposition._pca.PCA): A fitted PCA model that contains attributes to explain the results.
         """
+        # Define X and y as a raw data.
         X, y = self.X, self.y
-        feature_names = self.iris_dataset.feature_names
         
+        # Initialize the StandardScaler.
         scaler = StandardScaler()
-        scaler.fit(X)
-        X_scaled = pd.DataFrame(scaler.transform(X), columns=feature_names)#スケール変換の適用
+
+        # Fit a scaler to X and transform. Create a dataframe from scaled data.
+        X_scaled = scaler.fit_transform(X)
         
+        # Initialize a PCA.
         pca = PCA(n_components=n_components)
-        pca.fit(X_scaled)
+
+        # Fit a PCA to X_scaled data.
+        X_pca = pca.fit_transform(X_scaled)
         
-        X_pca = pca.transform(X_scaled)
-        
+        # Create a dataframe from X_scaled.
+        df_X_scaled = pd.DataFrame(X_scaled, columns=self.feature_names)
+
+        # Fit a PCA to the scaled data and transform. 
         df_pca = pd.DataFrame(X_pca)
+    
         
         plt.figure(figsize=(8, 8))
         mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], y)
-        plt.legend(self.iris_dataset.target_names, loc="best")
+        plt.legend(self.target_names, loc="best")
         plt.gca().set_aspect("equal")
         plt.xlabel("First principal component")
         plt.ylabel("Second principal component")
@@ -417,12 +426,11 @@ class AnalyzeIris:
         plt.matshow(pca.components_, cmap='viridis')
         plt.yticks([0, 1], ["First component", "Second component"])
         plt.colorbar()
-        plt.xticks(range(len(feature_names)),
-                   feature_names, rotation=60, ha='left')
+        plt.xticks(range(len(self.feature_names)),self.feature_names, rotation=60, ha='left')
         plt.xlabel("Feature")
         plt.ylabel("principal components")
-        
-        return X_scaled, df_pca, pca
+
+        return df_X_scaled, df_pca, pca
     
     def PlotNMF(self, n_components: int) -> tuple[pd.DataFrame, pd.DataFrame, PCA]:
         """Show  scatter plot of NMF scaled iris_data. 
@@ -435,6 +443,7 @@ class AnalyzeIris:
             df_nmf (pandas.core.frame.DataFrame): Dataframe of scaled iris data after component extraction.
             nmf (sklearn.decomposition._pca.PCA): A fitted NMF model.
         """
+        # Define X and y as a raw data.
         X, y = self.X, self.y
         feature_names = self.iris_dataset.feature_names
         
@@ -472,6 +481,7 @@ class AnalyzeIris:
 
         This algorithm clusters the data without using labels, placing similar items close together and dissimilar items far apart.
         """
+        # Define X and y as a raw data.
         X, y = self.X, self.y
         
         tsne = TSNE(random_state=42)
