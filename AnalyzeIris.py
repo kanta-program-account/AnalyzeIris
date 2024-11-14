@@ -400,22 +400,22 @@ class AnalyzeIris:
         # Initialize the StandardScaler.
         scaler = StandardScaler()
 
-        # Fit a scaler to X and transform. Create a dataframe from scaled data.
+        # Fit a scaler to X and transform.
         X_scaled = scaler.fit_transform(X)
         
         # Initialize a PCA.
         pca = PCA(n_components=n_components)
 
-        # Fit a PCA to X_scaled data.
+        # Fit a PCA to X_scaled data and transform using components extracted by PCA.
         X_pca = pca.fit_transform(X_scaled)
         
-        # Create a dataframe from X_scaled.
+        # Create a dataframe.
         df_X_scaled = pd.DataFrame(X_scaled, columns=self.feature_names)
 
-        # Fit a PCA to the scaled data and transform. 
+        # Create a dataframe.
         df_pca = pd.DataFrame(X_pca)
     
-        
+        # Create a plot.
         plt.figure(figsize=(8, 8))
         mglearn.discrete_scatter(X_pca[:, 0], X_pca[:, 1], y)
         plt.legend(self.target_names, loc="best")
@@ -423,6 +423,7 @@ class AnalyzeIris:
         plt.xlabel("First principal component")
         plt.ylabel("Second principal component")
         
+        # Create a heat map.
         plt.matshow(pca.components_, cmap='viridis')
         plt.yticks([0, 1], ["First component", "Second component"])
         plt.colorbar()
@@ -445,36 +446,36 @@ class AnalyzeIris:
         """
         # Define X and y as a raw data.
         X, y = self.X, self.y
-        feature_names = self.iris_dataset.feature_names
         
-        #X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+        # Initialize a NMF.
+        nmf = NMF(n_components=n_components)
+
+        # Fit a NMF to X_scaled data and transform using components extracted by NMF.
+        X_nmf = nmf.fit_transform(X)
+
+        # Create a dataframe.
+        df_X = pd.DataFrame(X, columns=self.feature_names)
+
+        # Create a dataframe.
+        df_nmf = pd.DataFrame(X_nmf)
         
-        # scaler = MinMaxScaler() #x軸, y軸いずれも0~1に収まるようにスケーリングされる。
-        # scaler.fit(X)
-        # X_scaled = pd.DataFrame(scaler.transform(X), columns=feature_names)#スケール変換の適用
-        
-        nmf = NMF(n_components=n_components, random_state=0) #取り出される成分と選ばれ方がランダム
-        nmf.fit(X) #X_trainをもとに成分を抽出。 nmfには成分の影響力に順番は無い。全て同等。
-        X_scaled_nmf = nmf.transform(X) #X_trainをもとに選択された成分で、X_trainを再構成。
-        
-        df_nmf = pd.DataFrame(X_scaled_nmf)
-        
+        # Create a map.
         plt.figure(figsize=(8, 8))
-        mglearn.discrete_scatter(X_scaled_nmf[:, 0], X_scaled_nmf[:, 1], y)
-        plt.legend(self.iris_dataset.target_names, loc="best")
+        mglearn.discrete_scatter(X_nmf[:, 0], X_nmf[:, 1], y)
+        plt.legend(self.target_names, loc="best")
         plt.gca().set_aspect("equal")
         plt.xlabel("First principal component")
         plt.ylabel("Second principal component")
         
+        # Create a heat map.
         plt.matshow(nmf.components_, cmap='viridis')
         plt.yticks([0, 1], ["First component", "Second component"])
         plt.colorbar()
-        plt.xticks(range(len(feature_names)),
-                   feature_names, rotation=60, ha='left')
+        plt.xticks(range(len(self.feature_names)),self.feature_names, rotation=60, ha='left')
         plt.xlabel("Feature")
         plt.ylabel("principal components")
         
-        return X_scaled_nmf, df_nmf, nmf
+        return df_X, df_nmf, nmf
     
     def PlotTSNE(self) -> None: #ラベルを使わずに、分類出来る。似ているものが近くに、違うものは遠くに配置するアルゴリズム。
         """Show t-SNE clustering. 
