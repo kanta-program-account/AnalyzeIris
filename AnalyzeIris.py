@@ -404,7 +404,7 @@ class AnalyzeIris:
         X_scaled = scaler.fit_transform(X)
         
         # Initialize a PCA.
-        pca = PCA(n_components=n_components)
+        pca = PCA(n_components=n_components, random_state=0)
 
         # Fit a PCA to X_scaled data and transform using components extracted by PCA.
         X_pca = pca.fit_transform(X_scaled)
@@ -448,7 +448,7 @@ class AnalyzeIris:
         X, y = self.X, self.y
         
         # Initialize a NMF.
-        nmf = NMF(n_components=n_components)
+        nmf = NMF(n_components=n_components, random_state=0)
 
         # Fit a NMF to X_scaled data and transform using components extracted by NMF.
         X_nmf = nmf.fit_transform(X)
@@ -459,7 +459,7 @@ class AnalyzeIris:
         # Create a dataframe.
         df_nmf = pd.DataFrame(X_nmf)
         
-        # Create a map.
+        # Create a plot.
         plt.figure(figsize=(8, 8))
         mglearn.discrete_scatter(X_nmf[:, 0], X_nmf[:, 1], y)
         plt.legend(self.target_names, loc="best")
@@ -477,7 +477,7 @@ class AnalyzeIris:
         
         return df_X, df_nmf, nmf
     
-    def PlotTSNE(self) -> None: #ラベルを使わずに、分類出来る。似ているものが近くに、違うものは遠くに配置するアルゴリズム。
+    def PlotTSNE(self) -> None:
         """Show t-SNE clustering. 
 
         This algorithm clusters the data without using labels, placing similar items close together and dissimilar items far apart.
@@ -485,16 +485,21 @@ class AnalyzeIris:
         # Define X and y as a raw data.
         X, y = self.X, self.y
         
-        tsne = TSNE(random_state=42)
-        iris_tsne = tsne.fit_transform(X)
+        # Initialize a TSNE.
+        tsne = TSNE(random_state=0) 
+
+        # Fit a TSNE and tranform.
+        X_tsne = tsne.fit_transform(X)
         
+        # Define a list of color.
         colors = ["#476A2A", "#7851B8", "#BD3430"]
         
+        # Create a plot.
         plt.figure(figsize=(10, 10))
-        plt.xlim(iris_tsne[:, 0].min(), iris_tsne[:, 0].max() + 1)
-        plt.ylim(iris_tsne[:, 1].min(), iris_tsne[:, 1].max() + 1)
+        plt.xlim(X_tsne[:, 0].min(), X_tsne[:, 0].max() + 1)
+        plt.ylim(X_tsne[:, 1].min(), X_tsne[:, 1].max() + 1)
         for i in range(len(X)):
-            plt.text(iris_tsne[i, 0], iris_tsne[i, 1], str(y[i]), color=colors[y[i]], fontdict={'weight': 'bold', 'size': 9})
+            plt.text(X_tsne[i, 0], X_tsne[i, 1], str(y[i]), color=colors[y[i]], fontdict={'weight': 'bold', 'size': 9})
         plt.xlabel("t-SNE feature 0")
         plt.ylabel("t-SNE feature 1")
         
