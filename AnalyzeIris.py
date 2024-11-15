@@ -517,14 +517,14 @@ class AnalyzeIris:
 
                 # Plot a data of each label.
                 points = X[cluster_labels == label]
-                mglearn.discrete_scatter(points[:, 2], points[:, 3], label, markers=marker, c=[color]*len(points))
+                mglearn.discrete_scatter(points[:, feature_xaxis], points[:, feature_yaxis], label, markers=marker, c=[color]*len(points))
 
             # Plot a cluster center.
-            mglearn.discrete_scatter(kmeans.cluster_centers_[:, 2], kmeans.cluster_centers_[:, 3], label, markers='^', markeredgewidth=2, c=['white']*len(self.target_names))
+            mglearn.discrete_scatter(kmeans.cluster_centers_[:, feature_xaxis], kmeans.cluster_centers_[:, feature_yaxis], label, markers='^', markeredgewidth=2, c=['white']*len(self.target_names))
 
             # Set a graph in detail.
-            plt.xlim(X[:, 2].min() - .2, X[:, 2].max() + .2)
-            plt.ylim(X[:, 3].min() - .2, X[:, 3].max() + .2)
+            plt.xlim(X[:, feature_xaxis].min() - .2, X[:, feature_xaxis].max() + .2)
+            plt.ylim(X[:, feature_yaxis].min() - .2, X[:, feature_yaxis].max() + .2)
             plt.xlabel("petal length (cm)")
             plt.ylabel("petal width (cm)")
             plt.show()
@@ -532,7 +532,9 @@ class AnalyzeIris:
         # Define X and y as a raw data.
         X, y = self.X, self.y
 
-        # feature_xaxis = 
+        # Define xaxis and yaxis.
+        feature_xaxis = self.feature_names.index("petal length (cm)")
+        feature_yaxis = self.feature_names.index("petal width (cm)")
         
         # Initialize a kmeans.
         kmeans = KMeans(n_clusters=3, random_state=0)
@@ -554,7 +556,7 @@ class AnalyzeIris:
         print("実際のラベル:\n{}".format(y))
 
         # Create a plot.
-        ScatterPlot(self, kmeans.labels_)
+        ScatterPlot(self, y)
         
     def PlotDendrogram(self, truncate :bool=False) -> None:
         """Show dendrogram which visualizes the clustering process. 
