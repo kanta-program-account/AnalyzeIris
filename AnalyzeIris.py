@@ -508,19 +508,53 @@ class AnalyzeIris:
 
         This algorithm clusters the data without using labels, placing cluster centers by calculating the mean of the data.
         """
+
+        def ScatterPlot(self, cluster_labels) -> None:
+            """Helper function to create a scatter plot on given axes with training and test data.
+            """
+            # Create a plot.
+            for label, (marker, color) in enumerate(zip(markers, colors)):
+
+                # Plot a data of each label.
+                points = X[cluster_labels == label]
+                mglearn.discrete_scatter(points[:, 2], points[:, 3], label, markers=marker, c=[color]*len(points))
+
+            # Plot a cluster center.
+            mglearn.discrete_scatter(kmeans.cluster_centers_[:, 2], kmeans.cluster_centers_[:, 3], label, markers='^', markeredgewidth=2, c=['white']*len(self.target_names))
+
+            # Set a graph in detail.
+            plt.xlim(X[:, 2].min() - .2, X[:, 2].max() + .2)
+            plt.ylim(X[:, 3].min() - .2, X[:, 3].max() + .2)
+            plt.xlabel("petal length (cm)")
+            plt.ylabel("petal width (cm)")
+            plt.show()
+
+        # Define X and y as a raw data.
         X, y = self.X, self.y
+
+        # feature_xaxis = 
         
-        kmeans = KMeans(n_clusters=3)
+        # Initialize a kmeans.
+        kmeans = KMeans(n_clusters=3, random_state=0)
+
+        # Fit a kmeans.
         kmeans.fit(X)
+
+        # Define a list of marker and color.
+        markers = ["o", "*", "D"]
+        colors = ['blue', 'orange', 'green']
         
-        print("KMeans法で予測したラベル:\n{}".format(kmeans.labels_))
-        
-        mglearn.discrete_scatter(X[:, 2], X[:, 3], kmeans.labels_, markers='o')
-        mglearn.discrete_scatter(kmeans.cluster_centers_[:, 2], kmeans.cluster_centers_[:, 3], [0, 1, 2], markers='^', markeredgewidth=2, c=['white','white','white'])
-        plt.xlabel("petal length (cm)")
-        plt.ylabel("petal width (cm)")
-                
+        # Show predeicted clustering labels.
+        print("KMeans法で予測したラベル:\n{}".format(kmeans.labels_)) 
+
+        # Create a plot.
+        ScatterPlot(self, kmeans.labels_)
+
+        # Show correct clustering labels. 
         print("実際のラベル:\n{}".format(y))
+
+        # Create a plot.
+        ScatterPlot(self, kmeans.labels_)
         
     def PlotDendrogram(self, truncate :bool=False) -> None:
         """Show dendrogram which visualizes the clustering process. 
