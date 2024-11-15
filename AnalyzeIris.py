@@ -523,7 +523,8 @@ class AnalyzeIris:
             mglearn.discrete_scatter(kmeans.cluster_centers_[:, feature_xaxis], kmeans.cluster_centers_[:, feature_yaxis], label, markers='^', markeredgewidth=2, c=['white']*len(self.target_names))
 
             # Set a graph in detail.
-            plt.xlim(X[:, feature_xaxis].min() - .2, X[:, feature_xaxis].max() + .2)
+            plt.xlim(X[:
+                       , feature_xaxis].min() - .2, X[:, feature_xaxis].max() + .2)
             plt.ylim(X[:, feature_yaxis].min() - .2, X[:, feature_yaxis].max() + .2)
             plt.xlabel("petal length (cm)")
             plt.ylabel("petal width (cm)")
@@ -564,13 +565,13 @@ class AnalyzeIris:
         Args:
             truncate (bool, optional): Determine the type of dendrogram, original or reduced. Defaults to False.
         """
-        # Create a plot.
+        # Define X and y as a raw data.
         X, y = self.X, self.y
         
         # Define a linkage.
         linkage_array = ward(X) # ward: Return bridge length that stored in an array
 
-        # Display a part of dendrogram or a completed dendrogram.  
+        # Display a part of dendrogram or a completed dendrogram.
         dendrogram(linkage_array, p=10, truncate_mode='lastp') if truncate else dendrogram(linkage_array)
         
         # Get a current figure.
@@ -596,7 +597,7 @@ class AnalyzeIris:
         # Set labels.
         plt.xlabel("Sample")
         plt.ylabel("ClusterDistance")
-        
+
         plt.show()
         
     def PlotDBSCAN(self, scaling :bool=False, eps :int=0.9, min_samples :int=5) -> None:
@@ -609,17 +610,29 @@ class AnalyzeIris:
             eps (float, optional): The parameter which decides the range of the same cluster. Defaults to 0.9.
             min_samples (int, optional): The parameter which decides the number of data points in one cluster. Defaults to 5.
         """
+        # Define X and y as a raw data.
         X, y = self.X, self.y
         
+        # Define xaxis and yaxis.
+        feature_xaxis = self.feature_names.index("petal length (cm)")
+        feature_yaxis = self.feature_names.index("petal width (cm)")
+        
+        # Scale X if scaling parameta is true.
         if scaling:
             scaler = StandardScaler()
             scaler.fit(X)
-            X_scaled = scaler.transform(X)
+            X = scaler.transform(X)
         
+        # Initialize a DBSCAN.
         dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+        
+        # Fit and predict X. Return cluster label.
         clusters = dbscan.fit_predict(X)
+        
+        # Output cluster labels.
         print("Cluster Memberships:\n{}".format(clusters))
         
-        plt.scatter(X[:, 2], X[:, 3], c=clusters)
-        plt.xlabel("Feature2")
-        plt.ylabel("Feature3")
+        # Plot and label X.
+        plt.scatter(X[:, feature_xaxis], X[:, feature_yaxis], c=clusters)
+        plt.xlabel(f"Feature{feature_xaxis}")
+        plt.ylabel(f"Feature{feature_yaxis}")
