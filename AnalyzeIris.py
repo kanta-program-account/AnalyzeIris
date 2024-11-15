@@ -564,26 +564,39 @@ class AnalyzeIris:
         Args:
             truncate (bool, optional): Determine the type of dendrogram, original or reduced. Defaults to False.
         """
+        # Create a plot.
         X, y = self.X, self.y
         
-        linkage_array = ward(X) # ward:凝集型クラスタリング クラスタ間距離を返す
-        if truncate:
-            dendrogram(linkage_array, p=10, truncate_mode='lastp')   # 最後に形成された10個のクラスタを表示
-        else:
-            dendrogram(linkage_array)  # 完全なデンドログラムを表示
+        # Define a linkage.
+        linkage_array = ward(X) # ward: Return bridge length that stored in an array
+
+        # Display a part of dendrogram or a completed dendrogram.  
+        dendrogram(linkage_array, p=10, truncate_mode='lastp') if truncate else dendrogram(linkage_array)
         
+        # Get a current figure.
         fig = plt.gcf()
-        fig.set_size_inches(12, 8)  # 幅10インチ、高さ8インチ
         
+        # Set a figure size.
+        fig.set_size_inches(12, 8)
+        
+        # Get a current axes.
         ax = plt.gca()
+
+        # Get a min and max values from ax.
         bounds = ax.get_xbound()
+
+        # Draw a line on a ax.
         ax.plot(bounds, [10, 10], '--', c='k')
         ax.plot(bounds, [5.5, 5.5], '--', c='k')
 
+        # Set a letter which means the number of clusters beside a line.
         ax.text(bounds[1], 10, ' 3 clusters', va='center', fontdict={'size': 15})
         ax.text(bounds[1], 5.5, ' 4 clusters', va='center', fontdict={'size': 15})
+
+        # Set labels.
         plt.xlabel("Sample")
         plt.ylabel("ClusterDistance")
+        
         plt.show()
         
     def PlotDBSCAN(self, scaling :bool=False, eps :int=0.9, min_samples :int=5) -> None:
