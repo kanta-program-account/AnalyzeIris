@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_iris
 from sklearn.utils import shuffle
+from sklearn.base import BaseEstimator
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
@@ -43,10 +44,10 @@ class AnalyzeIris:
     test_scores_mean (list): List of mean test score for each models.
     """
     
-    def __init__(self): 
+    def __init__(self, n_neighbors=5): 
         """Initializes the analyzeIris with the Iris dataset.
         """
-        #Load the Iris dataset.
+        # Load the Iris dataset.
         iris_dataset = load_iris()
 
         # Get a feature names.
@@ -61,16 +62,50 @@ class AnalyzeIris:
         # Shuffle the raw X and y.
         self.shuffle_X, self.shuffle_y = shuffle(self.X, self.y, random_state=0)
 
+        # Create a dataframe.
+        self.df = pd.DataFrame(self.X, columns=self.feature_names).assign(label=self.y)
+        
+        # Get a n_neighbors.
+        self.n_neighbors = n_neighbors
+        
+        # Define dictionary of models.
+        self.models = {
+            'LogisticRegression': LogisticRegression(max_iter=2000),
+            'LinearSVC': LinearSVC(),
+            'DecisionTreeClassifier': DecisionTreeClassifier(random_state=0),
+            'KNeighborsClassifier': KNeighborsClassifier(n_neighbors=self.n_neighbors),
+            'LinearRegression': LinearRegression(),
+            'RandomForestClassifier': RandomForestClassifier(random_state=0),
+            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=0),
+            'MLPClassifier': MLPClassifier(max_iter=2000, random_state=0)
+        }
+        
+        # Define dictionary of feature importances.
+        self.feature_importances_map = {
+            'DecisionTreeClassifier': 0,
+            'RandomForestClassifier': 0,
+            'GradientBoostingClassifier': 0
+            }
+
         # Prepare dictionaries, a dataframe, and an array. Use in practice2.
-        self.models = {}
-        self.feature_importances = {}
         self.df_test_scores_all_models = pd.DataFrame()
         self.mean_scores = []
 
-        # Prepare a dictionary.Use in practice3.
-        self.scalers = {}
+        # Define dictionary of scalers.
+        self.scalers = {
+            'MinMaxScaler': MinMaxScaler(),
+            'StandardScaler': StandardScaler(),
+            'RobustScaler': RobustScaler(),
+            'Normalizer': Normalizer(),
+        }
         
+        # Define xaxis and yaxis.
+        self.kmeans_feature_xaxis_index = self.feature_names.index("petal length (cm)")
+        self.kmeans_feature_yaxis_index = self.feature_names.index("petal width (cm)")
         
+        # Define xaxis and yaxis for PlotDBSCAN().
+        self.dbscan_feature_xaxis_index = self.feature_names.index("petal length (cm)")
+        self.dbscan_feature_yaxis_index = self.feature_names.index("petal width (cm)")
         
     def Get(self) -> pd.DataFrame:
         """Retrieve the iris dataset as a DataFrame.
@@ -78,17 +113,12 @@ class AnalyzeIris:
         Returns:
             pandas.core.frame.DataFrame: A DataFrame containing the feature data of the iris dataset.
         """
-
-        # Define X and y as a raw data.
-        X, y = self.X, self.y
-
-        # Convert X to a dataframe.
-        iris_dataframe = pd.DataFrame(X, columns=self.feature_names)
-
-        # Add a new column and data 'y'.
-        iris_dataframe["label"] = y
-
-        return iris_dataframe # Need to return or print. df.head() only shows a portion of the dataframe as a preview.
+        
+        # Adjust the display limit.
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        
+        return self.df
     
 
     def PairPlot(self, cmap: str = 'viridis') -> None:
@@ -98,14 +128,11 @@ class AnalyzeIris:
             cmap (str, optional): The color map used for the scatter plots. Defaults to 'viridis'.
         """
 
-        # Define X and y as a raw data.
-        X, y = self.X, self.y
-
-        # Convert a raw data to a dataframe.
-        iris_dataframe = pd.DataFrame(X, columns=self.feature_names)
+        # Create a feature matrix.  
+        df_feature_matrix = self.df.drop(columns=['label'])  
 
         # Create a pairplot graph.
-        grr = pd.plotting.scatter_matrix(iris_dataframe, c=y, figsize=(15, 15), marker='o',hist_kwds={'bins':20}, s=60, alpha=.8, cmap=cmap) # s: size of a marker.
+        grr = pd.plotting.scatter_matrix(df_feature_matrix, c=self.y, figsize=(15, 15), marker='o',hist_kwds={'bins':20}, s=60, alpha=.8, cmap=cmap) # s: size of a marker.
 
     def AllSupervised(self, n_neighbors: int) -> None:
         """Show lists of 5 train and test scores for each model.
@@ -116,75 +143,71 @@ class AnalyzeIris:
         Args:
             n_neighbors (int): Determine the n_neighbors as a parameter of KNeighborsClassifier model.
         """
+        
+        def ProcessSingleModel(model_name: str, cv_results: dict[str, list]) -> pd.DataFrame:
+            """Updates feature importances and records test scores for a single model based on cross-validation results.
 
+            Args:
+                model_name (str): 
+                    The name of the model (ex. "KNeighborsClassifier", "LinearRegression").
+                model (BaseEstimator): 
+                    The machine learning model instance. Must support scikit-learn style APIs.
+                cv_results (dict): 
+                    Cross-validation results as returned by `cross_validate`. 
+                    Expected keys include:
+                    - 'train_score': List of training scores for each fold.
+                    - 'test_score': List of test scores for each fold.
+                    - 'estimator': List of fitted model instances for each fold.
+                    
+            Returns:
+                df_test_scores_for_single_model: The all test scores for single model.
+            """
+            # Initialize an empty DataFrame for test scores.
+            df_test_scores_for_single_model = pd.DataFrame()
+            
+            # Split train and test datasets according to Stratified K-Fold (SKF) rules.
+            for fold_index, (train_score_for_single_fold, test_score_for_single_fold, fitted_estimator) in enumerate(zip(cv_results['train_score'], cv_results['test_score'], cv_results['estimator'])):
+                
+                # Update feature importances
+                if model_name in self.feature_importances_map:
+                    self.feature_importances_map[model_name] += fitted_estimator.feature_importances_
+                
+                # Update test scores DataFrame
+                df_test_scores_for_single_model = pd.concat([df_test_scores_for_single_model, pd.DataFrame([test_score_for_single_fold])], ignore_index=True) # pd.concat(default: axis=0): Cobine dataframes.
+                
+                # Output scores.
+                print("test score: {:.3f}   ".format(test_score_for_single_fold), "train score: {:.3f}".format(train_score_for_single_fold)) 
+
+            return df_test_scores_for_single_model
+            
         # Define X and y as shuffled.
         X, y = self.shuffle_X, self.shuffle_y
 
-        # Define dictionary of models.
-        self.models = {
-            'LogisticRegression': LogisticRegression(max_iter=2000),
-            'LinearSVC': LinearSVC(),
-            'DecisionTreeClassifier': DecisionTreeClassifier(random_state=0),
-            'KNeighborsClassifier': KNeighborsClassifier(n_neighbors=n_neighbors),
-            'LinearRegression': LinearRegression(),
-            'RandomForestClassifier': RandomForestClassifier(random_state=0),
-            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=0),
-            'MLPClassifier': MLPClassifier(max_iter=2000)
-        }
-
-        # Initialize feature importances.
-        tree_importances = 0
-        forest_importances = 0
-        gbrt_importances = 0
-
-        # Define dictionary of eature importances.
-        self.importances_map = {
-            'DecisionTreeClassifier': tree_importances,
-            'RandomForestClassifier': forest_importances,
-            'GradientBoostingClassifier': gbrt_importances
-            }
+        # Set a n_neighbors.
+        self.n_neighbors = n_neighbors
+        self.models['KNeighborsClassifier'].n_neighbors = self.n_neighbors
 
         # Define the number of splits.
         kfold = 5
 
-        # Calucurate train scores of each models.（cross_val_score only calculate test scores.）
+        # Calucurate train scores of a single model.（cross_val_score only calculate test scores.）
         for model_name, model in self.models.items():
             print(f"=== {model_name} ===")
 
-            # Dataframe preparation for (n_splits) test scores of each models.
-            df_test_scores_model = pd.DataFrame() 
-
             # Execute cross-validation for original data.
             cv_results = cross_validate(model, X, y, cv=kfold, return_train_score=True, return_indices=True, return_estimator=True)
-
-            # Split train and test datasets according to Stratified K-Fold (SKF) rules.
-            for fold_index in range(kfold):
-
-                # Replace.
-                test_score_fold = cv_results['test_score'][fold_index]
-                train_score_fold = cv_results['train_score'][fold_index]
-
-                # Reassignment a fitted model.
-                model = cv_results['estimator'][fold_index]
-
-                # Output.
-                print("test score: {:.3f}   ".format(test_score_fold), "train score: {:.3f}".format(train_score_fold)) 
-                
-                # Add the current model's test scores.
-                df_test_scores_model = pd.concat([df_test_scores_model, pd.DataFrame([test_score_fold])], ignore_index=True) # pd.concat(default: axis=0): Cobine dataframes.
-
-                # Caluculate feature importances (to get the mean of them later).
-                if model_name in self.importances_map:
-                    self.importances_map[model_name] += model.feature_importances_
+            
+            # Run a ProcessSingleModel().
+            df_test_scores_for_single_model = ProcessSingleModel(model_name, cv_results)
 
             # Caluculate mean of current model.
-            self.mean_scores.append(df_test_scores_model.mean().item())
+            self.mean_scores.append(df_test_scores_for_single_model.mean().item())
 
             # Add to the DataFrame that stores all the model's test scores.
-            self.df_test_scores_all_models = pd.concat([self.df_test_scores_all_models, df_test_scores_model], ignore_index=True, axis=1)
+            self.df_test_scores_all_models = pd.concat([self.df_test_scores_all_models, df_test_scores_for_single_model], ignore_index=True, axis=1)
 
         # Get the mean of feature importances.
-        for importances in self.feature_importances:
+        for importances in self.feature_importances_map.values():
             importances /= kfold
     
     def GetSupervised(self) -> pd.DataFrame:
@@ -225,10 +248,10 @@ class AnalyzeIris:
         # Get the number of features.
         n_features = len(self.feature_names)
 
-        print(self.importances_map)
+        print(self.feature_importances_map)
 
         # Create a graph.
-        for model_name, importance in self.importances_map.items():
+        for model_name, importance in self.feature_importances_map.items():
             
             plt.barh(range(n_features), importance, align='center')
             plt.yticks(np.arange(n_features), self.feature_names)
@@ -246,10 +269,10 @@ class AnalyzeIris:
         X, y = self.X, self.y
 
         # Split X and y. 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, shuffle=True, random_state=0) # "fold" used in AllSupervised() method cannot be used because each split of X_train and y_train is too small.
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.2,stratify=y, shuffle=True, random_state=0) # "fold" used in AllSupervised() method cannot be used because each split of X_train and y_train is too small.
 
         # Define a model.
-        tree = DecisionTreeClassifier(random_state=0)
+        tree = self.models['DecisionTreeClassifier']
 
         # Fit a model.
         tree.fit(X_train, y_train)
@@ -280,14 +303,6 @@ class AnalyzeIris:
         # Define X and y as shuffled.
         X, y = self.shuffle_X, self.shuffle_y
         
-        # Define dictionary of scalers.
-        self.scalers = {
-            'MinMaxScaler': MinMaxScaler(),
-            'StandardScaler': StandardScaler(),
-            'RobustScaler': RobustScaler(),
-            'Normalizer': Normalizer(),
-        }
-        
         # Define the number of splits and features.
         kfold = 5
         number_of_features = len(self.feature_names)
@@ -297,7 +312,7 @@ class AnalyzeIris:
         
         # --Plot "scaled data" after obtaining 5-fold train and test scores.--
         
-        for fold_index in range(kfold): # i:fold index
+        for fold_index in range(kfold):
             
             # Create subplots.
             fig, axes = plt.subplots(4, 5, figsize=(20, 20))
@@ -326,7 +341,7 @@ class AnalyzeIris:
                 pipeline = make_pipeline(scaler, LinearSVC())
                 
                 # Execute cross-validation for scaled data.
-                scaled_cv_results = cross_validate(pipeline, X, y, cv=5, return_train_score=True, return_indices=True)
+                scaled_cv_results = cross_validate(pipeline, X, y, cv=kfold, return_train_score=True, return_indices=True)
 
                 # Extract a scaled data from cross_validate().
                 X_train_scaled = scaler.fit_transform(X[scaled_cv_results["indices"]["train"][fold_index]])
@@ -340,7 +355,7 @@ class AnalyzeIris:
                     
                     # Replace.
                     row = index_feature_xaxis
-                    column = column_axes+1           
+                    column = column_axes+1   
                     
                     # Create a scaled data plots.
                     ScatterPlot(self, axes, row, column, X_train_scaled, X_test_scaled, index_feature_xaxis, index_feature_yaxis, scaler_name)
@@ -398,7 +413,7 @@ class AnalyzeIris:
         X, y = self.X, self.y
         
         # Initialize the StandardScaler.
-        scaler = StandardScaler()
+        scaler = self.scalers['StandardScaler']
 
         # Fit a scaler to X and transform.
         X_scaled = scaler.fit_transform(X)
@@ -448,14 +463,14 @@ class AnalyzeIris:
         X, y = self.X, self.y
         
         # Initialize a NMF.
-        nmf = NMF(n_components=n_components, random_state=0)
+        nmf = NMF(n_components=n_components, random_state=0, max_iter=2000)
 
         # Fit a NMF to X_scaled data and transform using components extracted by NMF.
         X_nmf = nmf.fit_transform(X)
-
+        
         # Create a dataframe.
         df_X = pd.DataFrame(X, columns=self.feature_names)
-
+        
         # Create a dataframe.
         df_nmf = pd.DataFrame(X_nmf)
         
@@ -509,7 +524,7 @@ class AnalyzeIris:
         This algorithm clusters the data without using labels, placing cluster centers by calculating the mean of the data.
         """
 
-        def ScatterPlot(self, cluster_labels) -> None:
+        def ScatterPlot(cluster_labels: np.ndarray) -> None:
             """Helper function to create a scatter plot on given axes with training and test data.
             """
             # Create a plot.
@@ -517,25 +532,22 @@ class AnalyzeIris:
 
                 # Plot a data of each label.
                 points = X[cluster_labels == label]
-                mglearn.discrete_scatter(points[:, feature_xaxis], points[:, feature_yaxis], label, markers=marker, c=[color]*len(points))
+                mglearn.discrete_scatter(points[:, self.kmeans_feature_xaxis_index], points[:, self.kmeans_feature_yaxis_index], label, markers=marker, c=[color]*len(points))
 
             # Plot a cluster center.
-            mglearn.discrete_scatter(kmeans.cluster_centers_[:, feature_xaxis], kmeans.cluster_centers_[:, feature_yaxis], label, markers='^', markeredgewidth=2, c=['white']*len(self.target_names))
+            mglearn.discrete_scatter(kmeans.cluster_centers_[:, self.kmeans_feature_xaxis_index], kmeans.cluster_centers_[:, self.kmeans_feature_yaxis_index], label, markers='^', markeredgewidth=2, c=['white']*len(self.target_names))
 
             # Set a graph in detail.
-            plt.xlim(X[:
-                       , feature_xaxis].min() - .2, X[:, feature_xaxis].max() + .2)
-            plt.ylim(X[:, feature_yaxis].min() - .2, X[:, feature_yaxis].max() + .2)
-            plt.xlabel("petal length (cm)")
-            plt.ylabel("petal width (cm)")
+            plt.xlim(X[:, self.kmeans_feature_xaxis_index].min() - .2, X[:, self.kmeans_feature_xaxis_index].max() + .2)
+            plt.ylim(X[:, self.kmeans_feature_yaxis_index].min() - .2, X[:, self.kmeans_feature_yaxis_index].max() + .2)
+            plt.xlabel(f"{self.feature_names[self.kmeans_feature_xaxis_index]}")
+            plt.ylabel(f"{self.feature_names[self.kmeans_feature_yaxis_index]}")
             plt.show()
 
         # Define X and y as a raw data.
         X, y = self.X, self.y
 
-        # Define xaxis and yaxis.
-        feature_xaxis = self.feature_names.index("petal length (cm)")
-        feature_yaxis = self.feature_names.index("petal width (cm)")
+        
         
         # Initialize a kmeans.
         kmeans = KMeans(n_clusters=3, random_state=0)
@@ -551,13 +563,13 @@ class AnalyzeIris:
         print("KMeans法で予測したラベル:\n{}".format(kmeans.labels_)) 
 
         # Create a plot.
-        ScatterPlot(self, kmeans.labels_)
+        ScatterPlot(kmeans.labels_)
 
         # Show correct clustering labels. 
         print("実際のラベル:\n{}".format(y))
 
         # Create a plot.
-        ScatterPlot(self, y)
+        ScatterPlot(y)
         
     def PlotDendrogram(self, truncate :bool=False) -> None:
         """Show dendrogram which visualizes the clustering process. 
@@ -600,7 +612,7 @@ class AnalyzeIris:
 
         plt.show()
         
-    def PlotDBSCAN(self, scaling :bool=False, eps :int=0.9, min_samples :int=5) -> None:
+    def PlotDBSCAN(self, scaling :bool=False, eps :int=0.5, min_samples :int=5) -> None:
         """Show DBSCAN clustering.
 
         This algorism clusters the data based on density .
@@ -612,10 +624,6 @@ class AnalyzeIris:
         """
         # Define X and y as a raw data.
         X, y = self.X, self.y
-        
-        # Define xaxis and yaxis.
-        feature_xaxis = self.feature_names.index("petal length (cm)")
-        feature_yaxis = self.feature_names.index("petal width (cm)")
         
         # Scale X if scaling parameta is true.
         if scaling:
@@ -633,6 +641,6 @@ class AnalyzeIris:
         print("Cluster Memberships:\n{}".format(clusters))
         
         # Plot and label X.
-        plt.scatter(X[:, feature_xaxis], X[:, feature_yaxis], c=clusters)
-        plt.xlabel(f"Feature{feature_xaxis}")
-        plt.ylabel(f"Feature{feature_yaxis}")
+        plt.scatter(X[:, self.dbscan_feature_xaxis_index], X[:, self.dbscan_feature_yaxis_index], c=clusters)
+        plt.xlabel(f"{self.feature_names[self.dbscan_feature_xaxis_index]}")
+        plt.ylabel(f"{self.feature_names[self.dbscan_feature_yaxis_index]}")
