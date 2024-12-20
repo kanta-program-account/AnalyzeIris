@@ -44,7 +44,7 @@ class AnalyzeIris:
     test_scores_mean (list): List of mean test score for each models.
     """
     
-    def __init__(self, n_neighbors=5): 
+    def __init__(self): 
         """Initializes the analyzeIris with the Iris dataset.
         """
         # Load the Iris dataset.
@@ -52,12 +52,13 @@ class AnalyzeIris:
 
         # Get a feature names.
         self.feature_names = iris_dataset.feature_names
+        print(type(self.feature_names))
 
         # Get a target names.
         self.target_names = iris_dataset.target_names
 
         # Get a data and taraget from the Iris dataset.
-        self.X, self.y = iris_dataset.data, iris_dataset.target
+        self.X, self.y = iris_dataset.data, iris_dataset.target # ndarray
 
         # Shuffle the raw X and y.
         self.shuffle_X, self.shuffle_y = shuffle(self.X, self.y, random_state=0)
@@ -65,15 +66,12 @@ class AnalyzeIris:
         # Create a dataframe.
         self.df = pd.DataFrame(self.X, columns=self.feature_names).assign(label=self.y)
         
-        # Get a n_neighbors.
-        self.n_neighbors = n_neighbors
-        
         # Define dictionary of models.
         self.models = {
             'LogisticRegression': LogisticRegression(max_iter=2000),
             'LinearSVC': LinearSVC(),
             'DecisionTreeClassifier': DecisionTreeClassifier(random_state=0),
-            'KNeighborsClassifier': KNeighborsClassifier(n_neighbors=self.n_neighbors),
+            'KNeighborsClassifier': KNeighborsClassifier(),
             'LinearRegression': LinearRegression(),
             'RandomForestClassifier': RandomForestClassifier(random_state=0),
             'GradientBoostingClassifier': GradientBoostingClassifier(random_state=0),
@@ -87,7 +85,7 @@ class AnalyzeIris:
             'GradientBoostingClassifier': 0
             }
 
-        # Prepare dictionaries, a dataframe, and an array. Use in practice2.
+        # Initialize dictionaries, a dataframe, and an array. Use in practice2.
         self.df_test_scores_all_models = pd.DataFrame()
         self.mean_scores = []
 
@@ -108,10 +106,10 @@ class AnalyzeIris:
         self.dbscan_feature_yaxis_index = self.feature_names.index("petal width (cm)")
         
     def Get(self) -> pd.DataFrame:
-        """Retrieve the iris dataset as a DataFrame.
+        """Retrieve the dataset as a DataFrame.
 
         Returns:
-            pandas.core.frame.DataFrame: A DataFrame containing the feature data of the iris dataset.
+            pandas.core.frame.DataFrame: A DataFrame containing the feature data of the dataset.
         """
         
         # Adjust the display limit.
@@ -184,8 +182,7 @@ class AnalyzeIris:
         X, y = self.shuffle_X, self.shuffle_y
 
         # Set a n_neighbors.
-        self.n_neighbors = n_neighbors
-        self.models['KNeighborsClassifier'].n_neighbors = self.n_neighbors
+        self.models['KNeighborsClassifier'].n_neighbors = n_neighbors
 
         # Define the number of splits.
         kfold = 5
@@ -422,7 +419,7 @@ class AnalyzeIris:
         pca = PCA(n_components=n_components, random_state=0)
 
         # Fit a PCA to X_scaled data and transform using components extracted by PCA.
-        X_pca = pca.fit_transform(X_scaled)
+        X_pca = pca.fit_transform(X_scaled) 
         
         # Create a dataframe.
         df_X_scaled = pd.DataFrame(X_scaled, columns=self.feature_names)
